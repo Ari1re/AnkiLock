@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.KanjiLock" parent="@android:style/Theme.DeviceDefault.DayNight">
+    <style name="Theme.AnkiLock" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

@@ -52,7 +52,7 @@ object Updater {
             connectTimeout = 15_000
             readTimeout = 30_000
             setRequestProperty("Accept", accept)
-            setRequestProperty("User-Agent", "KanjiLock-updater")
+            setRequestProperty("User-Agent", "AnkiLock-updater")
             setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
             if (!token.isNullOrBlank()) setRequestProperty("Authorization", "Bearer ${token.trim()}")
         }
@@ -135,7 +135,7 @@ object Updater {
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(ctx.packageName)
             setSize(apk.length())
-            // Once KanjiLock is the installer of record, later updates can go through without a prompt.
+            // Once AnkiLock is the installer of record, later updates can go through without a prompt.
             if (Build.VERSION.SDK_INT >= 31) setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }
         val id = installer.createSession(params)
@@ -190,11 +190,11 @@ object Updater {
     }
 
     fun notifyAvailable(ctx: Context, rel: Release) =
-        notify(ctx, NOTIF_AVAILABLE, "KanjiLock update available", "Build ${rel.versionCode} — tap to install", autoInstall = true)
+        notify(ctx, NOTIF_AVAILABLE, "AnkiLock update available", "Build ${rel.versionCode} — tap to install", autoInstall = true)
 
     fun notifyUpdated(ctx: Context) {
         NotificationManagerCompat.from(ctx).cancel(NOTIF_AVAILABLE)
-        notify(ctx, NOTIF_UPDATED, "KanjiLock updated", "Now on ${installedVersionName(ctx)}. Tap to open.", autoInstall = false)
+        notify(ctx, NOTIF_UPDATED, "AnkiLock updated", "Now on ${installedVersionName(ctx)}. Tap to open.", autoInstall = false)
     }
 
     fun clearNotifications(ctx: Context) {

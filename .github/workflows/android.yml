@@ -65,12 +65,12 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/*.apk "out/KanjiLock-$VERSION_NAME.apk"
+          cp app/build/outputs/apk/release/*.apk "out/AnkiLock-$VERSION_NAME.apk"
           ls -la out
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KanjiLock-${{ env.VERSION_NAME }}
+          name: AnkiLock-${{ env.VERSION_NAME }}
           path: out/*.apk
 
       # Every push to main refreshes a "latest" pre-release, so the newest APK is one tap away on your phone.
@@ -83,11 +83,11 @@ jobs:
           git push -f origin latest
           gh release delete latest -y || true
           gh release create latest out/*.apk --prerelease --title "Latest build ($VERSION_NAME)" \
-            --notes "versionCode: $VERSION_CODE"$'\n\n'"Automatic build of ${GITHUB_SHA::7}. Install the APK on your phone (allow installs from your browser/Files app). After that, KanjiLock updates itself from Settings → Updates."
+            --notes "versionCode: $VERSION_CODE"$'\n\n'"Automatic build of ${GITHUB_SHA::7}. Install the APK on your phone (allow installs from your browser/Files app). After that, AnkiLock updates itself from Settings → Updates."
 
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --notes "versionCode: $VERSION_CODE" --generate-notes
+          gh release create "$GITHUB_REF_NAME" out/*.apk --title "AnkiLock $GITHUB_REF_NAME" --notes "versionCode: $VERSION_CODE" --generate-notes

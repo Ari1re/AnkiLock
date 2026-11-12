@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
                     installMessage.value = "Update cancelled."
                 PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
                     installMessage.value = "Update failed: the new APK is signed with a different key than the installed app. " +
-                        "Uninstall KanjiLock once and install the latest APK from GitHub."
+                        "Uninstall AnkiLock once and install the latest APK from GitHub."
                 else -> {
                     val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     installMessage.value = "Update failed (status $status)${if (msg.isNullOrBlank()) "" else ": $msg"}"
@@ -229,7 +229,7 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text("KanjiLock", style = MaterialTheme.typography.headlineMedium)
+            Text("AnkiLock", style = MaterialTheme.typography.headlineMedium)
 
             CardPreview(entry, romajiAll, onNext = { entry = Cards.advance(ctx) })
 
@@ -361,9 +361,9 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                     })
                 }
                 Text(
-                    "Widget: long-press your home screen → Widgets → KanjiLock. On Android 16+ phones with " +
+                    "Widget: long-press your home screen → Widgets → AnkiLock. On Android 16+ phones with " +
                         "“Widgets on lock screen” (Settings → Display → Lock screen), swipe left on the lock " +
-                        "screen and add KanjiLock there too.",
+                        "screen and add AnkiLock there too.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -509,7 +509,7 @@ private fun DeckCard(
             onDismissRequest = { confirmDelete = false },
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Remove") } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
-            text = { Text("Remove “${deck.name}” from KanjiLock? Your Anki collection isn't touched.") },
+            text = { Text("Remove “${deck.name}” from AnkiLock? Your Anki collection isn't touched.") },
         )
     }
 }
@@ -600,7 +600,7 @@ private fun UpdatesSection(prefs: Prefs, autoInstall: MutableState<Boolean>, res
         Upd.Downloading -> if (progress < 0f) LinearProgressIndicator(Modifier.fillMaxWidth())
             else LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
         Upd.Installing -> Text(
-            "Installing… confirm on the system prompt if one appears. KanjiLock restarts when it's done.",
+            "Installing… confirm on the system prompt if one appears. AnkiLock restarts when it's done.",
             style = MaterialTheme.typography.bodySmall, color = muted,
         )
         is Upd.Failed -> Text(s.msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -608,7 +608,7 @@ private fun UpdatesSection(prefs: Prefs, autoInstall: MutableState<Boolean>, res
     if (!canInstall) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Allow KanjiLock to install updates",
+                "Allow AnkiLock to install updates",
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
             )
             TextButton(onClick = ::openInstallSettings) { Text("Allow") }

@@ -1,4 +1,4 @@
-# KanjiLock
+# AnkiLock
 
 A minimal Japanese study card for your Android lock screen: one kanji, word or phrase at a time, with its
 reading, meaning, and an example sentence with **romaji under the kanji**.
@@ -8,7 +8,7 @@ reading, meaning, and an example sentence with **romaji under the kanji**.
 - **Lock screen card**: a silent, persistent notification styled as a card. It works on every phone.
   Expand it to see the example sentence. The **Next** button skips to a new card.
 - **Widget**: home screen widget. On Android 16+ phones with *Settings → Display → Lock screen →
-  Widgets on lock screen*, swipe left on the lock screen and add KanjiLock there too.
+  Widgets on lock screen*, swipe left on the lock screen and add AnkiLock there too.
 - A new card appears every 15 min to daily (you choose), or tap → / Next.
 
 ## Card sources
@@ -27,8 +27,8 @@ reading, meaning, and an example sentence with **romaji under the kanji**.
 ## Updates
 
 Settings → **Updates** checks this repo's rolling `latest` release (on open, and twice a day in the background),
-downloads the APK, and installs it with the system installer. KanjiLock relaunches when the update finishes.
-The first time, Android asks you to allow KanjiLock to install apps. After the first self-installed update,
+downloads the APK, and installs it with the system installer. AnkiLock relaunches when the update finishes.
+The first time, Android asks you to allow AnkiLock to install apps. After the first self-installed update,
 later ones usually install without a prompt.
 
 While the repo is private, paste a fine-grained GitHub token with read-only **Contents** access to

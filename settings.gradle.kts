@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "KanjiLock"
+rootProject.name = "AnkiLock"
 include(":app")
