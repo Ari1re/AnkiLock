@@ -89,4 +89,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --notes "versionCode: $VERSION_CODE" --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --notes "versionCode: $VERSION_CODE" --generate-notes
