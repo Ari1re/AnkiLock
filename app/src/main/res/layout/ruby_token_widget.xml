@@ -4,13 +4,16 @@
     android:layout_height="wrap_content"
     android:gravity="center_horizontal"
     android:orientation="vertical"
-    android:paddingEnd="3dp">
+    android:paddingEnd="4dp">
 
     <TextView
         android:id="@+id/token_surface"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:includeFontPadding="false"
+        android:shadowColor="#66000000"
+        android:shadowDy="1"
+        android:shadowRadius="6"
         android:textColor="#FFFFFFFF"
         android:textSize="16sp" />
 
@@ -19,6 +22,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:includeFontPadding="false"
-        android:textColor="#B3FFFFFF"
+        android:shadowColor="#66000000"
+        android:shadowDy="1"
+        android:shadowRadius="6"
+        android:textColor="#D9FFFFFF"
         android:textSize="9sp" />
 </LinearLayout>
