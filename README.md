@@ -24,6 +24,16 @@ reading, meaning, and an example sentence with **romaji under the kanji**.
   - Both new (`collection.anki21b`, zstd) and legacy exports are supported. If an import fails, export again
     with *Support older Anki versions* ticked.
 
+## Updates
+
+Settings → **Updates** checks this repo's rolling `latest` release (on open, and twice a day in the background),
+downloads the APK, and installs it with the system installer. KanjiLock relaunches when the update finishes.
+The first time, Android asks you to allow KanjiLock to install apps. After the first self-installed update,
+later ones usually install without a prompt.
+
+While the repo is private, paste a fine-grained GitHub token with read-only **Contents** access to
+`Ari1re/AnkiLock` into Settings → Updates. A public repo needs no token.
+
 ## Builds (GitHub Actions)
 
 `.github/workflows/android.yml` builds a signed release APK on every push and PR. Every push to `main`

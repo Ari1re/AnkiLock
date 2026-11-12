@@ -4,4 +4,5 @@
     <string name="next">Next</string>
     <string name="channel_name">Lock screen card</string>
     <string name="channel_desc">The current card, shown on your lock screen. Silent.</string>
+    <string name="updates_channel">App updates</string>
 </resources>

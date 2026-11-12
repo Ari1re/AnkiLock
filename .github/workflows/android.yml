@@ -83,10 +83,10 @@ jobs:
           git push -f origin latest
           gh release delete latest -y || true
           gh release create latest out/*.apk --prerelease --title "Latest build ($VERSION_NAME)" \
-            --notes "Automatic build of ${GITHUB_SHA::7}. Install the APK on your phone (allow installs from your browser/Files app)."
+            --notes "versionCode: $VERSION_CODE"$'\n\n'"Automatic build of ${GITHUB_SHA::7}. Install the APK on your phone (allow installs from your browser/Files app). After that, KanjiLock updates itself from Settings → Updates."
 
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --notes "versionCode: $VERSION_CODE" --generate-notes

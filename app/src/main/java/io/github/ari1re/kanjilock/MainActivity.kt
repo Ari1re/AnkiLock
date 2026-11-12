@@ -1,6 +1,9 @@
 package io.github.ari1re.kanjilock
 
 import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -31,6 +34,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -43,7 +48,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,9 +64,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,6 +77,13 @@ class MainActivity : ComponentActivity() {
     private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         Cards.refresh(this)
     }
+
+    /** Message from the system installer (success / failure), shown as a dialog. */
+    private val installMessage = mutableStateOf<String?>(null)
+    /** Set when opened from the "update available" notification: download + install right away. */
+    private val autoInstall = mutableStateOf(false)
+    /** Bumped on every resume so the UI can re-check things like "install unknown apps". */
+    private val resumeTick = mutableIntStateOf(0)
 
     private fun requestNotifications() {
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -79,10 +96,60 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val prefs = Prefs(this)
         Scheduler.ensure(this)
+        Updater.scheduleChecks(this)
         if (prefs.lockNotification) requestNotifications()
         Cards.refresh(this)
+        handleIntent(intent)
         setContent {
-            KanjiTheme { SettingsScreen(prefs, ::requestNotifications) }
+            KanjiTheme {
+                SettingsScreen(prefs, ::requestNotifications, autoInstall, resumeTick.intValue)
+                installMessage.value?.let { msg ->
+                    AlertDialog(
+                        onDismissRequest = { installMessage.value = null },
+                        confirmButton = { TextButton(onClick = { installMessage.value = null }) { Text("OK") } },
+                        text = { Text(msg) },
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumeTick.intValue++
+        Updater.clearNotifications(this)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        intent ?: return
+        if (intent.action == Updater.ACTION_INSTALL_STATUS) {
+            when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)) {
+                PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                    val confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
+                    if (confirm != null) runCatching { startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }
+                PackageInstaller.STATUS_SUCCESS ->
+                    installMessage.value = "Updated to ${Updater.installedVersionName(this)}."
+                PackageInstaller.STATUS_FAILURE_ABORTED ->
+                    installMessage.value = "Update cancelled."
+                PackageInstaller.STATUS_FAILURE_CONFLICT, PackageInstaller.STATUS_FAILURE_INCOMPATIBLE ->
+                    installMessage.value = "Update failed: the new APK is signed with a different key than the installed app. " +
+                        "Uninstall KanjiLock once and install the latest APK from GitHub."
+                else -> {
+                    val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                    installMessage.value = "Update failed (status $status)${if (msg.isNullOrBlank()) "" else ": $msg"}"
+                }
+            }
+            intent.action = null
+        } else if (intent.getBooleanExtra(Updater.EXTRA_AUTO_INSTALL, false)) {
+            intent.removeExtra(Updater.EXTRA_AUTO_INSTALL)
+            autoInstall.value = true
         }
     }
 }
@@ -108,7 +175,7 @@ private val INTERVALS = listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 1
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit) {
+fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: MutableState<Boolean>, resumeTick: Int) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -301,6 +368,8 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            Section("Updates") { UpdatesSection(prefs, autoInstall, resumeTick) }
         }
     }
 
@@ -445,3 +514,121 @@ private fun DeckCard(
     }
 }
 
+
+private sealed interface Upd {
+    data object Idle : Upd
+    data object Checking : Upd
+    data object UpToDate : Upd
+    data class Available(val rel: Updater.Release) : Upd
+    data object Downloading : Upd
+    data object Installing : Upd
+    data class Failed(val msg: String) : Upd
+}
+
+@Composable
+private fun UpdatesSection(prefs: Prefs, autoInstall: MutableState<Boolean>, resumeTick: Int) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<Upd>(Upd.Idle) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var token by remember { mutableStateOf(prefs.githubToken.orEmpty()) }
+    var canInstall by remember { mutableStateOf(Updater.canInstall(ctx)) }
+
+    LaunchedEffect(resumeTick) { canInstall = Updater.canInstall(ctx) }
+
+    fun openInstallSettings() {
+        runCatching {
+            ctx.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
+    fun install(rel: Updater.Release) {
+        if (!Updater.canInstall(ctx)) { openInstallSettings(); return }
+        state = Upd.Downloading
+        progress = 0f
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching {
+                    var last = -1f
+                    val apk = Updater.download(ctx, rel) { p ->
+                        if (p < 0f || p - last >= 0.01f || p >= 1f) { last = p; progress = p }
+                    }
+                    Updater.install(ctx, apk)
+                }
+            }
+            state = r.fold({ Upd.Installing }, { Upd.Failed(it.message ?: it.javaClass.simpleName) })
+        }
+    }
+
+    fun check(silent: Boolean, thenInstall: Boolean = false) {
+        state = Upd.Checking
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { Updater.check(ctx) } }
+            r.onSuccess { rel ->
+                state = if (rel == null) Upd.UpToDate else Upd.Available(rel)
+                if (rel != null && thenInstall) install(rel)
+            }.onFailure {
+                state = if (silent) Upd.Idle else Upd.Failed(it.message ?: it.javaClass.simpleName)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { check(silent = true) }
+    LaunchedEffect(autoInstall.value) {
+        if (autoInstall.value) {
+            autoInstall.value = false
+            check(silent = false, thenInstall = true)
+        }
+    }
+
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        "Installed: ${Updater.installedVersionName(ctx)} (build ${Updater.installedVersionCode(ctx)})",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    when (val s = state) {
+        Upd.Idle -> {}
+        Upd.Checking -> LinearProgressIndicator(Modifier.fillMaxWidth())
+        Upd.UpToDate -> Text("You're on the latest build.", style = MaterialTheme.typography.bodySmall, color = muted)
+        is Upd.Available -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Build ${s.rel.versionCode} is ready", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Button(onClick = { install(s.rel) }) { Text("Install update") }
+        }
+        Upd.Downloading -> if (progress < 0f) LinearProgressIndicator(Modifier.fillMaxWidth())
+            else LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+        Upd.Installing -> Text(
+            "Installing… confirm on the system prompt if one appears. KanjiLock restarts when it's done.",
+            style = MaterialTheme.typography.bodySmall, color = muted,
+        )
+        is Upd.Failed -> Text(s.msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    }
+    if (!canInstall) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Allow KanjiLock to install updates",
+                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = muted,
+            )
+            TextButton(onClick = ::openInstallSettings) { Text("Allow") }
+        }
+    }
+    OutlinedButton(
+        enabled = state != Upd.Checking && state != Upd.Downloading,
+        onClick = { check(silent = false) },
+    ) { Text("Check for updates") }
+    OutlinedTextField(
+        value = token,
+        onValueChange = { token = it; prefs.githubToken = it.trim().ifEmpty { null } },
+        label = { Text("GitHub token (private repo only)") },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Text(
+        "Updates come from ${Updater.OWNER}/${Updater.REPO} → Releases → latest. For a private repo, paste a " +
+            "fine-grained token with read-only “Contents” access to that repo.",
+        style = MaterialTheme.typography.bodySmall, color = muted,
+    )
+}

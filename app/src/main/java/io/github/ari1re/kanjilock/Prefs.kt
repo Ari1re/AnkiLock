@@ -39,6 +39,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("lockNotif", true)
         set(v) = sp.edit().putBoolean("lockNotif", v).apply()
 
+    /** Optional GitHub token so the updater can read releases of a private repo. */
+    var githubToken: String?
+        get() = sp.getString("ghToken", null)?.takeIf { it.isNotBlank() }
+        set(v) = sp.edit().putString("ghToken", v).apply()
+
     var currentId: String?
         get() = sp.getString("current", null)
         set(v) = sp.edit().putString("current", v).apply()

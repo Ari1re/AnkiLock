@@ -107,7 +107,11 @@ class NextReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Scheduler.ensure(context)
+        Updater.scheduleChecks(context)
         Cards.refresh(context)
+        // After a self-update the system usually relaunches us via the install-status intent;
+        // this notification is the fallback if it can't.
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) Updater.notifyUpdated(context)
     }
 }
 
