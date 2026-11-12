@@ -1,6 +1,8 @@
 package io.github.ari1re.kanjilock
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.provider.Settings
@@ -344,12 +346,12 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                 }
             }
 
-            Section("Lock screen") {
+            Section("Widget & lock screen") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Card on the lock screen", style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "A silent card notification. Works on every phone.",
+                            "A silent card notification. Works on every phone, including Samsung.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -360,6 +362,7 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                         Cards.refresh(ctx, entry)
                     })
                 }
+                WidgetHelper()
                 Text(
                     "Widget: long-press your home screen → Widgets → AnkiLock. On Android 16+ phones with " +
                         "“Widgets on lock screen” (Settings → Display → Lock screen), swipe left on the lock " +
@@ -631,4 +634,32 @@ private fun UpdatesSection(prefs: Prefs, autoInstall: MutableState<Boolean>, res
             "fine-grained token with read-only “Contents” access to that repo.",
         style = MaterialTheme.typography.bodySmall, color = muted,
     )
+}
+
+/** Pins the widget straight onto the home screen and shows whether the system registered it. */
+@Composable
+private fun WidgetHelper() {
+    val ctx = LocalContext.current
+    val mgr = remember { AppWidgetManager.getInstance(ctx) }
+    val provider = remember { ComponentName(ctx, KanjiWidget::class.java) }
+    var note by remember { mutableStateOf<String?>(null) }
+    val registered = remember {
+        runCatching { mgr.getInstalledProvidersForPackage(ctx.packageName, null).isNotEmpty() }.getOrDefault(false)
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Button(onClick = {
+            note = when {
+                !registered -> "Android hasn't registered the AnkiLock widget. Restart the phone and try again."
+                !mgr.isRequestPinAppWidgetSupported -> "Your launcher doesn't support adding widgets from apps. Use the widget list instead."
+                mgr.requestPinAppWidget(provider, null, null) -> "Confirm on the prompt to place the widget."
+                else -> "The launcher refused the request. Use the widget list instead."
+            }
+        }) { Text("Add widget to home screen") }
+    }
+    Text(
+        if (registered) "Widget is registered with Android." else "Widget is NOT registered with Android yet.",
+        style = MaterialTheme.typography.bodySmall,
+        color = if (registered) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+    )
+    note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
 }
