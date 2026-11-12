@@ -3,6 +3,7 @@ package io.github.ari1re.kanjilock
 import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.os.PowerManager
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.provider.Settings
@@ -173,7 +174,7 @@ fun KanjiTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, content = content)
 }
 
-private val INTERVALS = listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 1440 to "Daily")
+private val INTERVALS = listOf(0 to "Every unlock", 15 to "15 min", 30 to "30 min", 60 to "1 hour", 180 to "3 hours", 360 to "6 hours", 1440 to "Daily")
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -334,7 +335,7 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                 }
             }
 
-            Section("New card every") {
+            Section("New card") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     INTERVALS.forEach { (m, label) ->
                         FilterChip(
@@ -344,6 +345,7 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                         )
                     }
                 }
+                if (interval == 0) BatteryHelper(resumeTick)
             }
 
             Section("Widget & lock screen") {
@@ -360,6 +362,7 @@ fun SettingsScreen(prefs: Prefs, requestNotifications: () -> Unit, autoInstall: 
                         lockOn = it; prefs.lockNotification = it
                         if (it) requestNotifications()
                         Cards.refresh(ctx, entry)
+                        UnlockService.sync(ctx) // swap the service's notification between card and minimal
                     })
                 }
                 WidgetHelper()
@@ -662,4 +665,31 @@ private fun WidgetHelper() {
         color = if (registered) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
     )
     note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+}
+
+/** Samsung and others kill background services; ask to be left alone so "Every unlock" keeps working. */
+@Composable
+private fun BatteryHelper(resumeTick: Int) {
+    val ctx = LocalContext.current
+    val pm = remember { ctx.getSystemService(PowerManager::class.java) }
+    var ok by remember { mutableStateOf(pm.isIgnoringBatteryOptimizations(ctx.packageName)) }
+    LaunchedEffect(resumeTick) { ok = pm.isIgnoringBatteryOptimizations(ctx.packageName) }
+    if (ok) return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "Let AnkiLock run in the background so the phone doesn't stop the unlock cards.",
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = {
+            runCatching {
+                @Suppress("BatteryLife")
+                ctx.startActivity(
+                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        }) { Text("Allow") }
+    }
 }

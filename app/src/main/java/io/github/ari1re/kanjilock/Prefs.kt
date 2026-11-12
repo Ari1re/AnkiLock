@@ -26,8 +26,9 @@ class Prefs(ctx: Context) {
         get() = sp.getStringSet("ankiActive", null)?.toSet() ?: emptySet()
         set(v) = sp.edit().putStringSet("ankiActive", v).apply()
 
+    /** Minutes between new cards; 0 = a new card every time the screen locks. */
     var intervalMinutes: Int
-        get() = sp.getInt("interval", 60)
+        get() = sp.getInt("interval", 0)
         set(v) = sp.edit().putInt("interval", v).apply()
 
     /** false = romaji only under kanji; true = under every word. */
