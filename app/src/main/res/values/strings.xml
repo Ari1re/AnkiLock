@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">KanjiLock</string>
+    <string name="widget_desc">A kanji, word or phrase with its meaning and an example sentence with romaji.</string>
+    <string name="next">Next</string>
+    <string name="channel_name">Lock screen card</string>
+    <string name="channel_desc">The current card, shown on your lock screen. Silent.</string>
+</resources>

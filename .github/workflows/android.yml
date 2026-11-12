@@ -1,0 +1,92 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04  # has the Android SDK preinstalled
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('0.1.{0}', github.run_number) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "No KEYSTORE_BASE64 secret — signing with the committed CI key (signing/ci.jks)."
+          fi
+
+      - name: Build release APK
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          gradle :app:testReleaseUnitTest :app:assembleRelease --console=plain 2>&1 | tee build.log
+      - name: Report build errors
+        if: failure()
+        run: |
+          # Surface compiler errors as annotations so they show up on the run page.
+          grep -E '^e: |error:|What went wrong|> |FAILED|Exception|expected' build.log | head -60 > errs.txt || true
+          split -l 6 errs.txt chunk_ || true
+          for f in chunk_*; do
+            msg=$(sed 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+            echo "::error title=Build error::$msg"
+          done
+
+      - name: Rename APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/*.apk "out/KanjiLock-$VERSION_NAME.apk"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KanjiLock-${{ env.VERSION_NAME }}
+          path: out/*.apk
+
+      # Every push to main refreshes a "latest" pre-release, so the newest APK is one tap away on your phone.
+      - name: Publish rolling "latest" release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          gh release delete latest -y || true
+          gh release create latest out/*.apk --prerelease --title "Latest build ($VERSION_NAME)" \
+            --notes "Automatic build of ${GITHUB_SHA::7}. Install the APK on your phone (allow installs from your browser/Files app)."
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/*.apk --title "KanjiLock $GITHUB_REF_NAME" --generate-notes
